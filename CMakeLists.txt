@@ -204,7 +204,7 @@ oneAPI targets to build AOT binaries for"
 endif()
 
 # Hydra Render Delegate
-option(WITH_CYCLES_HYDRA_RENDER_DELEGATE "Build Cycles Hydra render delegate" ON)
+option(WITH_CYCLES_HYDRA_RENDER_DELEGATE "Build Cycles Hydra render delegate" OFF)
 
 # Error Checking
 option(WITH_STRICT_BUILD_OPTIONS "When requirements for a build option are not met, error instead of disabling the option" OFF)

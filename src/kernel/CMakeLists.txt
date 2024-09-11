@@ -775,6 +775,8 @@ if(WITH_CYCLES_DEVICE_OPTIX AND WITH_CYCLES_CUDA_BINARIES)
       set(cuda_flags ${cuda_flags} -D WITH_CYCLES_DEBUG)
     endif()
 
+    set(cuda_flags ${cuda_flags} --allow-unsupported-compiler -D _ALLOW_COMPILER_AND_STL_VERSION_MISMATCH)
+
     add_custom_command(
       OUTPUT
         ${output}

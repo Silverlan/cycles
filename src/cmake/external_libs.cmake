@@ -67,7 +67,7 @@ else()
   endif()
 endif()
 
-if(EXISTS ${_cycles_lib_dir})
+if(EXISTS ${_cycles_lib_dir} AND WITH_LIBS_PRECOMPILED)
   message(STATUS "Using precompiled libraries at ${_cycles_lib_dir}")
 
   _set_default(ALEMBIC_ROOT_DIR "${_cycles_lib_dir}/alembic")
@@ -94,11 +94,13 @@ if(EXISTS ${_cycles_lib_dir})
   _set_default(PNG_ROOT "${_cycles_lib_dir}/png")
   _set_default(PUGIXML_ROOT_DIR "${_cycles_lib_dir}/pugixml")
   _set_default(PYTHON_ROOT_DIR "${_cycles_lib_dir}/python")
+  _set_default(SSE2NEON_ROOT_DIR "${_cycles_lib_dir}/sse2neon")
   _set_default(TBB_ROOT_DIR "${_cycles_lib_dir}/tbb")
   _set_default(TIFF_ROOT "${_cycles_lib_dir}/tiff")
   _set_default(USD_ROOT_DIR "${_cycles_lib_dir}/usd")
   _set_default(WEBP_ROOT_DIR "${_cycles_lib_dir}/webp")
   _set_default(ZLIB_ROOT "${_cycles_lib_dir}/zlib")
+  _set_default(ZSTD_ROOT_DIR "${_cycles_lib_dir}/zstd")
   if(WIN32)
     set(LEVEL_ZERO_ROOT_DIR ${_cycles_lib_dir}/level_zero)
   else()
@@ -116,7 +118,11 @@ if(EXISTS ${_cycles_lib_dir})
   # Ignore system libraries
   set(CMAKE_IGNORE_PATH "${CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES};${CMAKE_SYSTEM_INCLUDE_PATH};${CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES};${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}")
 else()
-  message(STATUS "No precompiled libraries found at ${_cycles_lib_dir}")
+  if(NOT WITH_LIBS_PRECOMPILED)
+    message(STATUS "Not using precompiled libraries")
+  else()
+    message(STATUS "No precompiled libraries found at ${_cycles_lib_dir}")
+  endif()
   message(STATUS "Attempting to use system libraries instead")
   unset(_cycles_lib_dir)
 endif()
@@ -736,6 +742,39 @@ if(WITH_USD)
 endif()
 
 ###########################################################################
+# ZSTD
+###########################################################################
+
+if(WIN32 AND DEFINED _cycles_lib_dir)
+  set(ZSTD_INCLUDE_DIRS ${ZSTD_ROOT_DIR}/include)
+  set(ZSTD_LIBRARIES ${ZSTD_ROOT_DIR}/lib/zstd_static.lib)
+else()
+  find_package(Zstd REQUIRED)
+endif()
+
+###########################################################################
+# SSE2NEON
+###########################################################################
+
+# Check for ARM Neon Support
+if(NOT DEFINED SUPPORT_NEON_BUILD)
+  include(CheckCXXSourceCompiles)
+  check_cxx_source_compiles(
+    "#include <arm_neon.h>
+     int main() {return vaddvq_s32(vdupq_n_s32(1));}"
+    SUPPORT_NEON_BUILD)
+endif()
+
+if(SUPPORT_NEON_BUILD)
+  if(WIN32 AND DEFINED _cycles_lib_dir)
+    set(SSE2NEON_INCLUDE_DIRS ${SSE2NEON_ROOT_DIR})
+    set(SSE2NEON_FOUND True)
+  else()
+    find_package(sse2neon)
+  endif()
+endif()
+
+###########################################################################
 # System Libraries
 ###########################################################################
 
@@ -840,26 +879,39 @@ endif()
 ###########################################################################
 
 if(WITH_CYCLES_DEVICE_ONEAPI OR EMBREE_SYCL_SUPPORT)
+  # Find packages for even when WITH_CYCLES_DEVICE_ONEAPI is OFF, as it's
+  # needed for linking to Embree with SYCL support.
   find_package(SYCL)
   find_package(LevelZero)
-  set_and_warn_library_found("oneAPI" SYCL_FOUND WITH_CYCLES_DEVICE_ONEAPI)
-  set_and_warn_library_found("Level Zero" LEVEL_ZERO_FOUND WITH_CYCLES_DEVICE_ONEAPI)
 
-  if(SYCL_FOUND AND SYCL_VERSION VERSION_GREATER_EQUAL 6.0 AND LEVEL_ZERO_FOUND)
-    message(STATUS "Found Level Zero: ${LEVEL_ZERO_LIBRARY}")
-  else()
-    message(STATUS "SYCL 6.0+ or Level Zero not found, disabling WITH_CYCLES_DEVICE_ONEAPI")
-    set(WITH_CYCLES_DEVICE_ONEAPI OFF)
+  if(WITH_CYCLES_DEVICE_ONEAPI)
+    set_and_warn_library_found("oneAPI" SYCL_FOUND WITH_CYCLES_DEVICE_ONEAPI)
+    set_and_warn_library_found("Level Zero" LEVEL_ZERO_FOUND WITH_CYCLES_DEVICE_ONEAPI)
+    if(NOT (SYCL_FOUND AND SYCL_VERSION VERSION_GREATER_EQUAL 6.0 AND LEVEL_ZERO_FOUND))
+      message(STATUS "SYCL 6.0+ or Level Zero not found, disabling WITH_CYCLES_DEVICE_ONEAPI")
+      set(WITH_CYCLES_DEVICE_ONEAPI OFF)
+    endif()
   endif()
 
   if(DEFINED SYCL_ROOT_DIR)
     if(WIN32)
-      list(APPEND PLATFORM_BUNDLED_LIBRARIES_RELEASE
-        ${SYCL_ROOT_DIR}/bin/sycl6.dll
-        ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll)
-      list(APPEND PLATFORM_BUNDLED_LIBRARIES_DEBUG
-        ${SYCL_ROOT_DIR}/bin/sycl6d.dll
-        ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll)
+      if(EXISTS ${SYCL_ROOT_DIR}/bin/sycl7.dll)
+        list(APPEND PLATFORM_BUNDLED_LIBRARIES_RELEASE
+          ${SYCL_ROOT_DIR}/bin/sycl7.dll
+          ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll
+          ${SYCL_ROOT_DIR}/bin/pi_win_proxy_loader.dll)
+        list(APPEND PLATFORM_BUNDLED_LIBRARIES_DEBUG
+          ${SYCL_ROOT_DIR}/bin/sycl7d.dll
+          ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll
+          ${SYCL_ROOT_DIR}/bin/pi_win_proxy_loaderd.dll)
+      else()
+        list(APPEND PLATFORM_BUNDLED_LIBRARIES_RELEASE
+          ${SYCL_ROOT_DIR}/bin/sycl6.dll
+          ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll)
+        list(APPEND PLATFORM_BUNDLED_LIBRARIES_DEBUG
+          ${SYCL_ROOT_DIR}/bin/sycl6d.dll
+          ${SYCL_ROOT_DIR}/bin/pi_level_zero.dll)
+      endif()
     else()
       file(GLOB _sycl_runtime_libraries
         ${SYCL_ROOT_DIR}/lib/libsycl.so

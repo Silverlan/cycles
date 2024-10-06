@@ -499,7 +499,7 @@ if(WITH_CYCLES_CUDA_BINARIES)
 
     set(_cuda_nvcc_args
           -arch=${arch}
-          ${CUDA_NVCC_FLAGS}
+          ${CUDA_NVCC_FLAGS} --allow-unsupported-compiler -D _ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
           --${format}
           ${CMAKE_CURRENT_SOURCE_DIR}${cuda_kernel_src}
           ${cuda_flags})

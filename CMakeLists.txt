@@ -230,7 +230,7 @@ oneAPI targets to build AOT binaries for"
 endif()
 
 # Hydra Render Delegate
-option(WITH_CYCLES_HYDRA_RENDER_DELEGATE "Build Cycles Hydra render delegate" ON)
+option(WITH_CYCLES_HYDRA_RENDER_DELEGATE "Build Cycles Hydra render delegate" OFF)
 
 option(WITH_CYCLES_PARALLEL_DEVICE_KERNEL_BUILD
        "Build Cycles kernels of difference devices in parallel (faster, but uses more memory)" OFF)

@@ -151,14 +151,16 @@ if(WIN32 AND MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " /Ox")
   string(APPEND CMAKE_CXX_FLAGS_MINSIZEREL " /Ox")
 
-  # `jumptablerdata` improves performance when there is contention in large switch statements
-  # such as in `svm.h`.
-  # This flag is supported starting with MSVC 17.7 preview 3:
-  # https://learn.microsoft.com/en-us/cpp/build/reference/jump-table-rdata
-  # This is an x64 specific optimization.
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.37.32820
-     AND CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
-    string(APPEND CMAKE_CXX_FLAGS " /jumptablerdata")
+  if(WITH_CYCLES_JUMPTABLERDATA)
+    # `jumptablerdata` improves performance when there is contention in large switch statements
+    # such as in `svm.h`.
+    # This flag is supported starting with MSVC 17.7 preview 3:
+    # https://learn.microsoft.com/en-us/cpp/build/reference/jump-table-rdata
+    # This is an x64 specific optimization.
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 19.37.32820
+      AND CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
+      string(APPEND CMAKE_CXX_FLAGS " /jumptablerdata")
+    endif()
   endif()
 elseif((CMAKE_C_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
   # Assume no signal trapping for better code generation.
